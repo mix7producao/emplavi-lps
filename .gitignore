@@ -31,3 +31,6 @@ Thumbs.db
 
 # Configuração local do Claude Code
 .claude/
+
+# Arquivos de referência locais (não publicar)
+*.pdf

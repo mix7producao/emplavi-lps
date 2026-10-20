@@ -1,9 +1,11 @@
-# Publica a LP no servidor da Emplavi via SFTP a cada push no main.
+# Publica as LPs da Emplavi no servidor via SFTP a cada push no main.
+# Cada pasta na raiz do repositório é uma LP: <pasta>/ vai para DEPLOY_PATH/<pasta>/ e fica em emplavi.com.br/<pasta>/.
+# Pastas que começam com "." ou "_" (ex.: _modelo) não são publicadas.
 # Usa a chave SSH em secrets.DEPLOY_SSH_KEY (sem depender de IP fixo).
-# Configuração em Settings > Secrets and variables > Actions > Variables:
+# Variáveis em Settings > Secrets and variables > Actions > Variables:
 #   DEPLOY_HOST  servidor (178.62.54.36)
 #   DEPLOY_USER  usuário SFTP criado pela equipe do servidor
-#   DEPLOY_PATH  caminho absoluto da pasta da LP no servidor (ex.: /var/www/emplavi/residencial-agata)
+#   DEPLOY_PATH  pasta das LPs no servidor (ex.: /var/www/emplavi-lps)
 # Antes de mudar formulários, ver CHECKLIST-DEPLOY-EMPLAVI.md.
 name: Deploy Emplavi
 
@@ -11,6 +13,10 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      lp:
+        description: "Publicar só esta pasta (vazio = todas as que mudaram)"
+        required: false
 
 concurrency:
   group: deploy-emplavi
@@ -22,29 +28,53 @@ jobs:
     if: ${{ vars.DEPLOY_USER != '' && vars.DEPLOY_PATH != '' }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Descobrir LPs a publicar
+        id: lps
+        run: |
+          if [ -n "${{ inputs.lp }}" ]; then
+            lps="${{ inputs.lp }}"
+          elif git rev-parse HEAD~1 >/dev/null 2>&1; then
+            lps=$(git diff --name-only HEAD~1 HEAD | cut -d/ -f1 | sort -u | while read d; do
+              [ -d "$d" ] && case "$d" in .*|_*) ;; *) echo "$d";; esac; done)
+          else
+            lps=$(find . -mindepth 1 -maxdepth 1 -type d ! -name '.*' ! -name '_*' -printf '%f\n')
+          fi
+          lps=$(echo $lps)
+          echo "LPs: ${lps:-nenhuma}"
+          echo "list=$lps" >> "$GITHUB_OUTPUT"
 
       - name: Preparar chave SSH
+        if: steps.lps.outputs.list != ''
         run: |
           mkdir -p ~/.ssh
           printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H "${{ vars.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
-
-      - name: Enviar arquivos por SFTP
-        run: |
           sudo apt-get install -y -qq lftp > /dev/null
-          lftp -c "
-            set sftp:connect-program 'ssh -a -x -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes';
-            set net:max-retries 2; set net:timeout 30;
-            open -u '${{ vars.DEPLOY_USER }}', sftp://${{ vars.DEPLOY_HOST }};
-            mirror --reverse --only-newer --verbose \
-              --exclude-glob .git/ --exclude-glob .github/ --exclude-glob .claude/ \
-              --exclude-glob '*.md' --exclude-glob '*.txt' --exclude-glob '*.pdf' --exclude-glob .gitignore \
-              ./ '${{ vars.DEPLOY_PATH }}/'
-          "
 
-      - name: Conferir site publicado
+      - name: Enviar por SFTP
+        if: steps.lps.outputs.list != ''
         run: |
-          code=$(curl -s -o /dev/null -w '%{http_code}' "https://emplavi.com.br/residencial-agata/?deploy=${GITHUB_SHA::7}")
-          echo "HTTP $code"
-          test "$code" = "200"
+          for lp in ${{ steps.lps.outputs.list }}; do
+            echo "::group::$lp"
+            lftp -c "
+              set sftp:connect-program 'ssh -a -x -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes';
+              set net:max-retries 2; set net:timeout 30;
+              open -u '${{ vars.DEPLOY_USER }}', sftp://${{ vars.DEPLOY_HOST }};
+              mirror --reverse --verbose --exclude-glob '*.md' --exclude-glob '*.txt' --exclude-glob '*.pdf' \
+                ./$lp/ '${{ vars.DEPLOY_PATH }}/$lp/'
+            "
+            echo "::endgroup::"
+          done
+
+      - name: Conferir no ar
+        if: steps.lps.outputs.list != ''
+        run: |
+          for lp in ${{ steps.lps.outputs.list }}; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "https://emplavi.com.br/$lp/?deploy=${GITHUB_SHA::7}")
+            echo "$lp: HTTP $code"
+            test "$code" = "200"
+          done

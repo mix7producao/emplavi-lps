@@ -14,8 +14,8 @@ Formulário da LP  ──JS────▶  RD Station (token público + identif
 Depois do envio   ─────────▶ /obrigado-<empreendimento>/   (página de obrigado no WordPress)
 ```
 
-- O envio ao Hypnobox **só funciona dentro de emplavi.com.br** (mesmo domínio do WordPress). Fora dele (GitHub Pages, localhost), o `assets/site.6c14e4f21e.js` só valida o formulário e não manda nada (GTM e RD Station também só carregam no domínio). Isso é de propósito, para prévias não criarem leads falsos.
-- Código: bloco "INTEGRAÇÃO PADRONIZADA HYPNOBOX EMPLAVI" em `assets/site.6c14e4f21e.js` (envio) e `window.EMPLAVI_CONFIG` no `<head>` do `index.html` (dados da LP).
+- O envio ao Hypnobox **só funciona dentro de emplavi.com.br** (mesmo domínio do WordPress). Fora dele (GitHub Pages, localhost), o `<pasta-da-lp>/assets/site.6c14e4f21e.js` (no Ágata) só valida o formulário e não manda nada (GTM e RD Station também só carregam no domínio). Isso é de propósito, para prévias não criarem leads falsos.
+- Código: bloco "INTEGRAÇÃO PADRONIZADA HYPNOBOX EMPLAVI" em `<pasta-da-lp>/assets/site.6c14e4f21e.js` (no Ágata) (envio) e `window.EMPLAVI_CONFIG` no `<head>` do `index.html` (dados da LP).
 - **Fonte da verdade:** o que está no ar em `emplavi.com.br/<pasta>/`. Antes de editar, compare o repositório com o site publicado (baixe os arquivos) para não subir versão velha por cima.
 
 ## 1. Não mude os campos do Hypnobox
@@ -49,14 +49,16 @@ No HTML, os campos visíveis se chamam `form_fields[nome]`, `form_fields[email]`
 - [ ] Teste na prévia (GitHub Pages): preencher e enviar. Deve aparecer "Prévia: cadastro validado…" e o console mostra o payload com os campos da tabela acima.
 - [ ] `canonical`, `og:url` e `og:image` apontando para `https://emplavi.com.br/<pasta>/`.
 
-## 3. Subir
+## 3. Subir (automático)
 
-- **Automático:** cada push no `main` do repositório roda o workflow `.github/workflows/deploy.yml`, que envia os arquivos por SFTP com a chave SSH guardada no secret `DEPLOY_SSH_KEY`. Não depende de IP: o servidor libera o usuário de deploy só por chave.
-- Configuração (Settings > Secrets and variables > Actions): variáveis `DEPLOY_HOST`, `DEPLOY_USER` e `DEPLOY_PATH`. Sem `DEPLOY_USER`/`DEPLOY_PATH`, o workflow fica em espera (skipped).
+- Repositório único `mix7producao/emplavi-lps`: **cada pasta na raiz é uma LP** (`residencial-agata/` vira `emplavi.com.br/residencial-agata/`). Pastas que começam com `_` ou `.` não são publicadas.
+- Cada push no `main` roda `.github/workflows/deploy.yml`, que envia por SFTP **só as pastas que mudaram**, usando a chave SSH do secret `DEPLOY_SSH_KEY`. Não depende de IP: o servidor libera o usuário de deploy só por chave, restrito à pasta das LPs.
+- Variáveis (Settings > Secrets and variables > Actions): `DEPLOY_HOST`, `DEPLOY_USER` e `DEPLOY_PATH` (pasta das LPs no servidor). Sem `DEPLOY_USER`/`DEPLOY_PATH`, o workflow fica em espera (skipped).
 - A chave privada fica só no secret do GitHub e em `~/.ssh/emplavi_deploy_ed25519` no PC do Tiago. Nunca vai para o repositório.
-- O envio exclui `.git`, `.github`, `.claude`, `*.md`, `*.txt` e `*.pdf`, e não apaga nada no servidor.
-- **LP nova:** criar o repositório, copiar o workflow e definir `DEPLOY_PATH` com a pasta da nova LP (o mesmo usuário e a mesma chave servem).
-- Manual (emergência): GitHub > Actions > Deploy Emplavi > Run workflow.
+- O envio não apaga nada no servidor e ignora `*.md`, `*.txt` e `*.pdf`.
+- **LP nova:** criar a pasta, aplicar este checklist, conferir a prévia, fazer push. Não precisa mexer no servidor.
+- Republicar uma LP manualmente: GitHub > Actions > Deploy Emplavi > Run workflow (campo `lp` com o nome da pasta).
+- Prévia de todas as LPs: https://mix7producao.github.io/emplavi-lps/
 ## 4. Depois de subir (teste real, obrigatório)
 
 - [ ] Abrir `https://emplavi.com.br/<pasta>/?utm_source=teste&utm_campaign=deploy` em aba anônima.
