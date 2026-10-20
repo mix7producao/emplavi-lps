@@ -34,3 +34,6 @@ Thumbs.db
 
 # Arquivos de referência locais (não publicar)
 *.pdf
+
+# Backups locais (não publicar)
+_backup*/
