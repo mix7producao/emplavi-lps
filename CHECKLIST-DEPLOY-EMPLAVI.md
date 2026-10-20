@@ -45,6 +45,7 @@ No HTML, os campos visíveis se chamam `form_fields[nome]`, `form_fields[email]`
 - [ ] `tituloPagina`, `tipoApartamento`, `bairro`, `interesseEm`, `midiaPadrao`, `mensagemOrigem` revisados.
 - [ ] Existe **um único** handler de submit (o de `site.6c14e4f21e.js`). Um template antigo abria o WhatsApp sem mandar o lead ao CRM.
 - [ ] O envio espera a resposta do `admin-ajax.php` antes de redirecionar (`keepalive` + `await`), e o botão fica desabilitado durante o envio.
+- [ ] **Conversões:** o evento `lead_submit` (que no GTM GTM-WTZL5XF dispara a conversão do Google Ads, o GA4 `envio_formulario` e o Lead do Meta) só pode ser enviado **depois** que o `admin-ajax.php` responder com sucesso. Nunca no clique, na validação ou antes da resposta. Não chamar `fbq("track","Lead")` no código: o GTM já envia (contaria em dobro).
 - [ ] Ao trocar JS/CSS, mudar o `?v=AAAAMMDD` dos links para furar o cache.
 - [ ] Teste na prévia (GitHub Pages): preencher e enviar. Deve aparecer "Prévia: cadastro validado…" e o console mostra o payload com os campos da tabela acima.
 - [ ] `canonical`, `og:url` e `og:image` apontando para `https://emplavi.com.br/<pasta>/`.

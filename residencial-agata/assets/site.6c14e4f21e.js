@@ -464,40 +464,39 @@ c(".lead-form").forEach(formEl => formEl.addEventListener("submit", evt => {
     const submitBtn = form.querySelector('button[type="submit"]');
     if (submitBtn) submitBtn.disabled = true;
 
+    const defaultObrigado = "/obrigado-residencial-agata/";
+    const configUrl = isLiveSite
+      ? ((window.EMPLAVI_CONFIG && window.EMPLAVI_CONFIG.urlObrigado) || defaultObrigado)
+      : new URL("../obrigado-residencial-agata/", window.location.href).pathname;
+    const searchParams = window.location.search || "";
+    const targetObrigadoUrl = configUrl + (configUrl.includes("?") ? (searchParams ? "&" + searchParams.slice(1) : "") : searchParams);
+
+    // 1) Envio ao Hypnobox. Espera a resposta: a conversão só conta se o CRM confirmar o recebimento.
+    let hypnoboxOk = false;
+    const ctrl = typeof AbortController === "function" ? new AbortController() : null;
+    const timer = ctrl ? setTimeout(() => ctrl.abort(), 10000) : null;
     try {
-      // Disparo para a integração Hypnobox. keepalive + espera antes do redirecionamento
-      // para a navegação não cancelar a requisição (lead perdido).
-      const hypnoboxSend = fetch(hypnoboxUrl, {
+      const res = await fetch(hypnoboxUrl, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: payload.toString(),
         credentials: "same-origin",
-        keepalive: true
-      }).then(res => {
-        if (!res.ok) console.warn("Hypnobox response status:", res.status);
-      }).catch(err => {
-        console.warn("Hypnobox async send notice:", err);
+        keepalive: true,
+        signal: ctrl ? ctrl.signal : undefined
       });
+      let json = null;
+      try { json = await res.json(); } catch (e) {}
+      hypnoboxOk = res.ok && !(json && json.success === false);
+      if (!hypnoboxOk) console.warn("Hypnobox: resposta sem sucesso", res.status, json);
+    } catch (err) {
+      console.warn("Hypnobox: falha no envio", err);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
 
-      // Disparo dataLayer compatível com GA4, GTM e tags RD Station
-      l("lead_submit", {
-        form_name: form.id || "Residencial Ágata",
-        lead_name: nome,
-        lead_email: email,
-        lead_phone: telefoneFormatado,
-        empreendimento: tituloPagina,
-        id_produto: idProduto,
-        midia: midiaFinal,
-        utm_source: utmSource,
-        utm_campaign: utmCampaign,
-        utm_medium: utmMedium,
-        utm_term: utmTerm,
-        utm_content: utmContent,
-        token_rdstation: (window.EMPLAVI_CONFIG && window.EMPLAVI_CONFIG.tokenRdStation) || "33a69fee1f007e4a6a3a673585ba91a8",
-        conversion_identifier: (window.EMPLAVI_CONFIG && window.EMPLAVI_CONFIG.identificadorRd) || "conversao-lp-residencial-agata"
-      });
-
-      // Disparo direto RD Station
+    // 2) RD Station: uma vez por página, mesmo se o Hypnobox falhar (não é conversão de mídia).
+    if (!window.__emplaviRdSent) {
+      window.__emplaviRdSent = true;
       try {
         const tokenRd = (window.EMPLAVI_CONFIG && window.EMPLAVI_CONFIG.tokenRdStation) || "33a69fee1f007e4a6a3a673585ba91a8";
         const identificadorRd = (window.EMPLAVI_CONFIG && window.EMPLAVI_CONFIG.identificadorRd) || "conversao-lp-residencial-agata";
@@ -521,7 +520,6 @@ c(".lead-form").forEach(formEl => formEl.addEventListener("submit", evt => {
           { name: "utm_content", value: utmContent },
           { name: "midia", value: midiaFinal }
         ];
-
         if (typeof window.sendEmplaviRDLead === "function") {
           window.sendEmplaviRDLead(rdLeadData);
         } else if (window.RdstationFormsIntegration && window.RdstationFormsIntegration.Integration && typeof window.RdstationFormsIntegration.Integration.post === "function") {
@@ -532,49 +530,53 @@ c(".lead-form").forEach(formEl => formEl.addEventListener("submit", evt => {
       } catch (rdErr) {
         console.warn("RD Station post notice:", rdErr);
       }
-
-      if (typeof fbq === "function") fbq("track", "Lead");
-      if (a && n && typeof gtag === "function") gtag("event", "conversion", { send_to: `${a}/${n}` });
-
-      const defaultObrigado = "/obrigado-residencial-agata/";
-      const configUrl = isLiveSite
-        ? ((window.EMPLAVI_CONFIG && window.EMPLAVI_CONFIG.urlObrigado) || defaultObrigado)
-        : new URL("../obrigado-residencial-agata/", window.location.href).pathname;
-      const searchParams = window.location.search || "";
-      const targetObrigadoUrl = configUrl + (configUrl.includes("?") ? (searchParams ? "&" + searchParams.slice(1) : "") : searchParams);
-
-      if (statusEl) {
-        statusEl.textContent = "Cadastro recebido com sucesso! Redirecionando...";
-        statusEl.classList.remove("is-error");
-      }
-
-      // Fechar o balão nativo antes de limpar os campos após o envio válido.
-      form.querySelector('button[type="submit"]')?.focus({ preventScroll: true });
-      form.reset();
-
-      // Só sai da página depois da resposta do Hypnobox (máx. 8 s) e com folga para o RD Station.
-      await Promise.all([
-        Promise.race([hypnoboxSend, new Promise(r => setTimeout(r, 8000))]),
-        new Promise(r => setTimeout(r, 400))
-      ]);
-      window.location.href = targetObrigadoUrl;
-    } catch (err) {
-      console.error("Erro no processamento:", err);
-      const defaultObrigado = "/obrigado-residencial-agata/";
-      const configUrl = isLiveSite
-        ? ((window.EMPLAVI_CONFIG && window.EMPLAVI_CONFIG.urlObrigado) || defaultObrigado)
-        : new URL("../obrigado-residencial-agata/", window.location.href).pathname;
-      const searchParams = window.location.search || "";
-      const targetObrigadoUrl = configUrl + (configUrl.includes("?") ? (searchParams ? "&" + searchParams.slice(1) : "") : searchParams);
-
-      if (statusEl) {
-        statusEl.textContent = "Cadastro recebido! Redirecionando...";
-        statusEl.classList.remove("is-error");
-      }
-      setTimeout(() => {
-        window.location.href = targetObrigadoUrl;
-      }, 400);
     }
+
+    // Teste pela prévia (?enviar_crm=1): o navegador não deixa ler a resposta de outro domínio,
+    // então segue para o obrigado sem disparar conversão.
+    if (!hypnoboxOk && !sendFromPreview) {
+      // Lead não confirmado: sem conversão, sem redirecionar; mantém os dados para tentar de novo.
+      form.dataset.sending = "0";
+      if (submitBtn) submitBtn.disabled = false;
+      if (statusEl) {
+        statusEl.textContent = "Não conseguimos enviar seu cadastro agora. Por favor, tente novamente em instantes.";
+        statusEl.classList.add("is-error");
+      }
+      return;
+    }
+
+    // 3) Conversão: lead_submit dispara no GTM a conversão do Google Ads, o GA4 envio_formulario e o Lead do Meta.
+    //    Só acontece depois da confirmação do Hypnobox. Não chamar fbq("track","Lead") aqui: o GTM já envia (contaria em dobro).
+    if (hypnoboxOk) {
+      l("lead_submit", {
+        form_name: form.id || "Residencial Ágata",
+        lead_name: nome,
+        lead_email: email,
+        lead_phone: telefoneFormatado,
+        empreendimento: tituloPagina,
+        id_produto: idProduto,
+        midia: midiaFinal,
+        utm_source: utmSource,
+        utm_campaign: utmCampaign,
+        utm_medium: utmMedium,
+        utm_term: utmTerm,
+        utm_content: utmContent,
+        token_rdstation: (window.EMPLAVI_CONFIG && window.EMPLAVI_CONFIG.tokenRdStation) || "33a69fee1f007e4a6a3a673585ba91a8",
+        conversion_identifier: (window.EMPLAVI_CONFIG && window.EMPLAVI_CONFIG.identificadorRd) || "conversao-lp-residencial-agata"
+      });
+    }
+
+    if (statusEl) {
+      statusEl.textContent = "Cadastro recebido com sucesso! Redirecionando...";
+      statusEl.classList.remove("is-error");
+    }
+    // Fechar o balão nativo antes de limpar os campos após o envio válido.
+    form.querySelector('button[type="submit"]')?.focus({ preventScroll: true });
+    form.reset();
+
+    // Folga para as tags (Ads/GA4/Meta) e o RD Station saírem antes de trocar de página.
+    await new Promise(r => setTimeout(r, 600));
+    window.location.href = targetObrigadoUrl;
 
   })(formEl);
 
