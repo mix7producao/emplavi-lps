@@ -443,14 +443,20 @@ c(".lead-form").forEach(formEl => formEl.addEventListener("submit", evt => {
       utm_content: utmContent
     });
 
-    // Prévias fora de emplavi.com.br (GitHub Pages, localhost) não enviam lead real ao Hypnobox nem ao RD.
-    if (!/(^|\.)emplavi\.com\.br$/.test(window.location.hostname)) {
+    // Prévias fora de emplavi.com.br (GitHub Pages, localhost) simulam o fluxo completo sem criar lead,
+    // indo para a página de obrigado da prévia. Com ?enviar_crm=1 na URL, enviam um lead real ao Hypnobox (teste).
+    const isLiveSite = /(^|\.)emplavi\.com\.br$/.test(window.location.hostname);
+    const sendFromPreview = !isLiveSite && urlParams.get("enviar_crm") === "1";
+    if (!isLiveSite && !sendFromPreview) {
       console.info("Prévia fora de emplavi.com.br: lead NÃO enviado. Payload Hypnobox:", Object.fromEntries(payload));
       if (statusEl) {
-        statusEl.textContent = "Prévia: cadastro validado, mas não enviado ao CRM (só envia em emplavi.com.br).";
+        statusEl.textContent = "Prévia: cadastro validado (não enviado ao CRM). Redirecionando...";
         statusEl.classList.remove("is-error");
       }
       form.reset();
+      setTimeout(() => {
+        window.location.href = new URL("../obrigado-residencial-agata/", window.location.href).href;
+      }, 700);
       return;
     }
 
@@ -531,7 +537,9 @@ c(".lead-form").forEach(formEl => formEl.addEventListener("submit", evt => {
       if (a && n && typeof gtag === "function") gtag("event", "conversion", { send_to: `${a}/${n}` });
 
       const defaultObrigado = "/obrigado-residencial-agata/";
-      const configUrl = (window.EMPLAVI_CONFIG && window.EMPLAVI_CONFIG.urlObrigado) || defaultObrigado;
+      const configUrl = isLiveSite
+        ? ((window.EMPLAVI_CONFIG && window.EMPLAVI_CONFIG.urlObrigado) || defaultObrigado)
+        : new URL("../obrigado-residencial-agata/", window.location.href).pathname;
       const searchParams = window.location.search || "";
       const targetObrigadoUrl = configUrl + (configUrl.includes("?") ? (searchParams ? "&" + searchParams.slice(1) : "") : searchParams);
 
@@ -553,7 +561,9 @@ c(".lead-form").forEach(formEl => formEl.addEventListener("submit", evt => {
     } catch (err) {
       console.error("Erro no processamento:", err);
       const defaultObrigado = "/obrigado-residencial-agata/";
-      const configUrl = (window.EMPLAVI_CONFIG && window.EMPLAVI_CONFIG.urlObrigado) || defaultObrigado;
+      const configUrl = isLiveSite
+        ? ((window.EMPLAVI_CONFIG && window.EMPLAVI_CONFIG.urlObrigado) || defaultObrigado)
+        : new URL("../obrigado-residencial-agata/", window.location.href).pathname;
       const searchParams = window.location.search || "";
       const targetObrigadoUrl = configUrl + (configUrl.includes("?") ? (searchParams ? "&" + searchParams.slice(1) : "") : searchParams);
 
