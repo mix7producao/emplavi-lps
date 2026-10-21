@@ -32,7 +32,7 @@ O `Hypnobox.php` lê exatamente estes nomes. **Nunca renomeie, remova ou troque 
 | `tipoApartamento`, `bairro`, `interesseEm` | texto fixo da LP (vem do `EMPLAVI_CONFIG`) |
 | `jaPossuiImovel` | resposta de "Já é morador do Sudoeste?" |
 | `mensagem` | resumo com telefone, morador, id do formulário e mídia |
-| `midia`, `midia_origem`, `utm_source` | `"[source] - [campaign]"` (o `utm_source` vira a mídia no CRM) |
+| `midia`, `midia_origem`, `utm_source` | `"[utm_source] - [utm_content]"` (pedido da Emplavi em 21/10/2026) (o `utm_source` vira a mídia no CRM) |
 | `utm_campaign`, `utm_medium`, `utm_term`, `utm_content` | da URL (guardados no sessionStorage) |
 
 No HTML, os campos visíveis se chamam `form_fields[nome]`, `form_fields[email]`, `form_fields[phone]` e `form_fields[mora_sudoeste]`, e os 3 formulários têm os mesmos campos ocultos (`action`, `form_fields[idproduto]`, `form_fields[idformulario]`, `form_fields[field_titulo_pagina]`, `form_fields[tipoapartamento]`, `identificador`, `token_rdstation`).
@@ -62,9 +62,9 @@ No HTML, os campos visíveis se chamam `form_fields[nome]`, `form_fields[email]`
 - Prévia de todas as LPs: https://mix7producao.github.io/emplavi-lps/
 ## 4. Depois de subir (teste real, obrigatório)
 
-- [ ] Abrir `https://emplavi.com.br/<pasta>/?utm_source=teste&utm_campaign=deploy` em aba anônima.
+- [ ] Abrir `https://emplavi.com.br/<pasta>/?utm_source=teste&utm_content=deploy` em aba anônima.
 - [ ] DevTools > Network: enviar 1 lead de teste (nome "TESTE DEPLOY - apagar"). O POST para `admin-ajax.php` deve voltar **200** com `{"success":true}`.
 - [ ] Foi redirecionado para a página de obrigado.
-- [ ] O lead apareceu no **Hypnobox** no empreendimento certo, com mídia `teste - deploy`.
+- [ ] O lead apareceu no **Hypnobox** no empreendimento certo, com mídia `teste - deploy` (abrir com `?utm_source=teste&utm_content=deploy`).
 - [ ] O lead apareceu no **RD Station** com a conversão certa.
 - [ ] Avisar a Emplavi para descartar o lead de teste.

@@ -191,11 +191,12 @@ const syncUtmParams = () => {
 
 
 
-    const effMidia = (effSrc && effCmp)
+    // Mídia no Hypnobox (pedido da Emplavi): [utm_source] - [utm_content]
+    const effMidia = (effSrc && effCnt)
 
-      ? `${effSrc} - ${effCmp}`
+      ? `${effSrc} - ${effCnt}`
 
-      : (effSrc || (effCmp ? `LP Residencial Agata - ${effCmp}` : 'LP Residencial Agata'));
+      : (effSrc || (effCnt ? `LP Residencial Agata - ${effCnt}` : 'LP Residencial Agata'));
 
 
 
@@ -383,21 +384,21 @@ c(".lead-form").forEach(formEl => formEl.addEventListener("submit", evt => {
 
 
 
-    // Formatação de mídia exigida pelo cliente: [source] - [campaign name]
+    // Formatação de mídia exigida pela Emplavi: [utm_source] - [utm_content]
 
     let midiaFinal = "LP Residencial Agata";
 
-    if (utmSource && utmCampaign) {
+    if (utmSource && utmContent) {
 
-      midiaFinal = `${utmSource} - ${utmCampaign}`;
+      midiaFinal = `${utmSource} - ${utmContent}`;
 
     } else if (utmSource) {
 
       midiaFinal = utmSource;
 
-    } else if (utmCampaign) {
+    } else if (utmContent) {
 
-      midiaFinal = `LP Residencial Agata - ${utmCampaign}`;
+      midiaFinal = `LP Residencial Agata - ${utmContent}`;
 
     }
 
